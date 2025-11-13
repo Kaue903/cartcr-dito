@@ -3,14 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BANCO KAPWBS</title>
+<title>BANCO SENAICRED</title>
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div id="dataHora"></div>
   <header>
     <img id="logo" src="Kapwbs (1).jpg" alt="Logo Kapwbs Bank">
-    <h1>BANCO KAPWBS 💰</h1>
+    <h1>BANCO SENAICRED 💰</h1>
   </header>
 
   <main>
@@ -22,34 +22,51 @@
     <select id="tipoConta">
       <option value="corrente">Conta Corrente</option>
       <option value="poupanca">Conta Poupança</option>
+      <!-- REQUISITO 1: Nova Opção no Portfólio -->
+      <option value="cartao">Cartão de Crédito</option>
     </select>
 
     <button id="btnAbrir" onclick="abrirConta()">Abrir Conta</button>
     <div class="resultado" id="resConta"></div>
 
-    <h2>Operações Bancárias</h2>
-    <button id="btnDepositar" onclick="chamarModalDeposito()">Depositar</button>
-    <button id="btnSacar" onclick="chamarModalSaque()">Sacar</button>
-    <button id="btnSaldo" onclick="verSaldo()">Ver Saldo</button>
-    <button id="btnMov" onclick="listarMovimentos()">Listar Movimentações</button>
-    <button id="btnEncerrar" onclick="chamarModalEncerrar()">Encerrar Conta</button>
+    <!-- =================================== -->
+    <!-- PAINEL DE CONTA (POUPANÇA/CORRENTE) -->
+    <!-- =================================== -->
+    <div id="operacoesBancarias" class="hidden">
+        <h2>Operações Bancárias</h2>
+        <button id="btnDepositar" onclick="chamarModalDeposito()">Depositar</button>
+        <button id="btnSacar" onclick="chamarModalSaque()">Sacar</button>
+        <button id="btnSaldo" onclick="verSaldo()">Ver Saldo</button>
+        <button id="btnMov" onclick="listarMovimentos()">Listar Movimentações</button>
+        <button id="btnEncerrar" onclick="chamarModalEncerrar()">Encerrar Conta</button>
+    </div>
 
+    <!-- =================================== -->
+    <!-- PAINEL DE CARTÃO DE CRÉDITO (NOVO) -->
+    <!-- =================================== -->
+    <div id="operacoesCartao" class="hidden">
+        <h2>Operações do Cartão</h2>
+        <!-- REQUISITO 3: Novas Operações -->
+        <button id="btnCompra" onclick="chamarModalCompra()">Fazer Compra</button>
+        <button id="btnPagarFatura" onclick="chamarModalPagarFatura()">Pagar Fatura</button>
+        <button id="btnVerLimite" onclick="verSaldo()">Ver Limite/Fatura</button>
+        <!-- REQUISITO 4: Juros Rotativos (Simulação) -->
+        <button id="btnSimularVencimento" onclick="simularVencimento()">Simular Vencimento</button>
+        <button id="btnMovCartao" onclick="listarMovimentos()">Listar Movimentações</button>
+        <button id="btnEncerrarCartao" onclick="chamarModalEncerrar()">Cancelar Cartão</button>
+    </div>
+
+    <!-- Área de resultado geral -->
     <div class="resultado" id="resOperacoes"></div>
   </main>
 
-  <!-- =================================== -->
-  <!-- ESTRUTURA DO NOVO POP-UP (MODAL) -->
-  <!-- =================================== -->
+  <!-- Estrutura do Pop-up (Modal) -->
   <div id="modalOverlay" class="hidden">
     <div id="modalCaixa">
       <h3 id="modalTitulo">Título do Modal</h3>
       <p id="modalTexto">Texto de explicação.</p>
-      
-      <!-- Input para valores (só aparece quando necessário) -->
       <input type="text" id="modalInput" placeholder="Digite o valor aqui...">
-      
       <div id="modalBotoes">
-        <!-- O texto desses botões vai mudar via JS -->
         <button id="modalBtnConfirmar">Confirmar</button>
         <button id="modalBtnCancelar">Cancelar</button>
       </div>
