@@ -1,5 +1,6 @@
 /* ============================================================
 CÓDIGO JAVASCRIPT - BANCO SENAICRED (COM CARTÃO DE CRÉDITO)
+(Correção do Bug de Encerramento)
 ============================================================ */
 
 // -----------------------------------------------------------------
@@ -32,7 +33,7 @@ let acaoCancelarGlobal = null;
 
 // ===================================
 // FUNÇÕES DO POP-UP (MODAL)
-// (Nenhuma mudança aqui, são as mesmas da versão anterior)
+// (Com animação e correção de bug do saque)
 // ===================================
 
 function abrirModal(tipo, titulo, texto, acaoConfirmar = null, acaoCancelar = null) {
@@ -76,12 +77,15 @@ function abrirModal(tipo, titulo, texto, acaoConfirmar = null, acaoCancelar = nu
 
 function fecharModal() {
   modalOverlay.classList.remove('active');
-  modalOverlay.addEventListener('transitionend', function handler() {
+  modalOverlay.addEventListener('transitionend', function handler(e) {
+    // Garante que o evento só rode no overlay (e não em filhos)
+    if (e.target !== modalOverlay) return; 
+    
     modalOverlay.classList.add('hidden');
     modalOverlay.removeEventListener('transitionend', handler);
     acaoConfirmarGlobal = null;
     acaoCancelarGlobal = null;
-  }, { once: true }); // Garante que o listener rode só uma vez
+  });
 }
 
 modalBtnCancelar.onclick = () => {
@@ -94,7 +98,7 @@ modalBtnConfirmar.onclick = () => {
   let naoFechar = false;
   if (acaoConfirmarGlobal) {
     const resultado = acaoConfirmarGlobal(valorInput);
-    if (resultado === false) naoFechar = true;
+    if (resultado === false) naoFechar = true; // Impede fechar se outro modal for abrir
   }
   if (!naoFechar) fecharModal();
 };
@@ -117,9 +121,6 @@ function obterDataHoraAtual() {
   const hora = agora.toLocaleTimeString('pt-BR');
   return `[${data} ${hora}]`;
 }
-
-// 🚫 REMOVIDA: A função habilitarOperacoes() não é mais necessária,
-// pois estamos trocando os painéis inteiros.
 
 function contaAtiva() {
   if (!conta || !conta.ativa) {
@@ -156,10 +157,6 @@ function limparResultados() {
     document.getElementById("resOperacoes").innerHTML = "";
 }
 
-/**
- * Define qual painel de operações deve ser exibido
- * @param {string} tipo - 'bancario', 'cartao', ou 'nenhum'
- */
 function exibirPainelOperacoes(tipo) {
     painelBancario.classList.add('hidden');
     painelCartao.classList.add('hidden');
@@ -171,10 +168,6 @@ function exibirPainelOperacoes(tipo) {
     }
 }
 
-/**
- * Cria uma data de vencimento (ex: 15 dias a partir de hoje)
- * @returns {Date}
- */
 function calcularDataVencimento() {
     const data = new Date();
     data.setDate(data.getDate() + 15); // Vencimento em 15 dias
@@ -185,9 +178,6 @@ function calcularDataVencimento() {
 // FUNÇÕES PRINCIPAIS (ATUALIZADAS)
 // ===================================
 
-/**
- * Função para abrir uma nova conta (Bancária ou Cartão)
- */
 function abrirConta() {
   limparResultados();
   const nome = document.getElementById("nome").value.trim();
@@ -199,48 +189,37 @@ function abrirConta() {
     return;
   }
   
-  movimentacoes = []; // Limpa histórico anterior
+  movimentacoes = [];
   let msgSucesso = "";
 
   if (tipo === "corrente" || tipo === "poupanca") {
-    // --- Cria CONTA BANCÁRIA ---
     conta = {
-      nomeCliente: nome,
-      tipoConta: tipo,
-      saldo: 0,
-      ativa: true,
-      dataUltimoDeposito: null // Para juros da poupança
+      nomeCliente: nome, tipoConta: tipo, saldo: 0, ativa: true,
+      dataUltimoDeposito: null
     };
     registrarMovimentacao("Abertura", 0, `Conta ${tipo} aberta para ${nome}`);
     msgSucesso = `✅ Conta <strong>${tipo}</strong> criada com sucesso para <strong>${nome}</strong>.`;
-    exibirPainelOperacoes('bancario'); // Mostra botões de banco
+    exibirPainelOperacoes('bancario');
   
   } else if (tipo === "cartao") {
-    // --- REQUISITO 2: Cria CARTÃO DE CRÉDITO ---
     conta = {
-        nomeCliente: nome,
-        tipoConta: 'cartao',
-        limiteTotal: 2000.00,
-        saldoDevedor: 0.00,
-        ativa: true,
-        dataVencimento: calcularDataVencimento() // Req 5
+        nomeCliente: nome, tipoConta: 'cartao', limiteTotal: 2000.00,
+        saldoDevedor: 0.00, ativa: true, dataVencimento: calcularDataVencimento()
     };
     registrarMovimentacao("Abertura", 0, `Cartão de Crédito aprovado para ${nome}`);
-    // REQUISITO 2: Mensagem de sucesso
     msgSucesso = `💳 Cartão de Crédito criado com sucesso para <strong>${nome}</strong>!` +
                  `<br>Limite inicial: <strong>R$ 2.000,00</strong>.`;
-    exibirPainelOperacoes('cartao'); // Mostra botões de cartão
+    exibirPainelOperacoes('cartao');
   }
   
   document.getElementById("resConta").innerHTML = msgSucesso;
   
-  // Trava os campos de abertura
   document.getElementById("nome").disabled = true;
   document.getElementById("tipoConta").disabled = true;
   document.getElementById("btnAbrir").disabled = true;
 }
 
-// --- Funções de Conta Bancária (sem alteração) ---
+// --- Funções de Conta Bancária ---
 
 function chamarModalDeposito() {
   if (!contaAtiva()) return;
@@ -268,12 +247,13 @@ function chamarModalSaque() {
   if (!contaAtiva()) return;
   limparResultados();
 
-  // (Lógica de Juros da Poupança - copiada da versão anterior)
   if (conta.tipoConta !== 'poupanca') {
     abrirModalSaqueSimples(false); return;
   }
+  
   const hoje = new Date();
   const diasPassados = calcularDiferencaDias(conta.dataUltimoDeposito, hoje);
+  
   if (diasPassados >= 30 && conta.saldo > 0) {
     const juros = conta.saldo * 0.005;
     conta.saldo += juros;
@@ -326,21 +306,15 @@ function abrirModalSaqueSimples(zerarDataPoupanca) {
   );
 }
 
+// --- Funções de Cartão de Crédito ---
 
-// --- REQUISITO 3: Novas Funções de Cartão de Crédito ---
-
-/**
- * REQUISITO 3: Permite registrar uma compra no cartão.
- */
 function chamarModalCompra() {
     if (!contaAtiva()) return;
     limparResultados();
-
     const limiteDisponivel = conta.limiteTotal - conta.saldoDevedor;
 
     abrirModal(
-        'prompt',
-        'Fazer Compra',
+        'prompt', 'Fazer Compra',
         `Limite Disponível: <strong>R$ ${limiteDisponivel.toFixed(2)}</strong><br>Digite o valor da compra:`,
         (valorStr) => {
             const valor = parseFloat(valorStr.replace(",", "."));
@@ -352,11 +326,8 @@ function chamarModalCompra() {
                 document.getElementById("resOperacoes").innerHTML = `<span class="msg-alerta">Limite insuficiente!</span>`;
                 return;
             }
-
-            // Atualiza o saldo devedor
             conta.saldoDevedor += valor;
             registrarMovimentacao("Compra", valor);
-            
             const novoLimiteDisp = conta.limiteTotal - conta.saldoDevedor;
             document.getElementById("resOperacoes").innerHTML = 
                 `🛒 Compra de R$ ${valor.toFixed(2)} aprovada!` +
@@ -365,9 +336,6 @@ function chamarModalCompra() {
     );
 }
 
-/**
- * REQUISITO 3: Permite pagar a fatura do cartão.
- */
 function chamarModalPagarFatura() {
     if (!contaAtiva()) return;
     limparResultados();
@@ -378,8 +346,7 @@ function chamarModalPagarFatura() {
     }
 
     abrirModal(
-        'prompt',
-        'Pagar Fatura',
+        'prompt', 'Pagar Fatura',
         `Saldo Devedor: <strong>R$ ${conta.saldoDevedor.toFixed(2)}</strong><br>Digite o valor do pagamento:`,
         (valorStr) => {
             const valor = parseFloat(valorStr.replace(",", "."));
@@ -388,14 +355,25 @@ function chamarModalPagarFatura() {
                 return;
             }
             if (valor > conta.saldoDevedor) {
-                document.getElementById("resOperacoes").innerHTML = `<span class="msg-alerta">Valor maior que a dívida!</span>`;
-                return;
+                // BUG FIX: Vamos permitir pagar a mais? Não.
+                // Mas se o valor for 0.00001 a mais (float bug), devemos aceitar?
+                // Vamos usar a mesma lógica do round.
+                const valorEmCentavos = Math.round(valor * 100);
+                const dividaEmCentavos = Math.round(conta.saldoDevedor * 100);
+
+                if (valorEmCentavos > dividaEmCentavos) {
+                    document.getElementById("resOperacoes").innerHTML = `<span class="msg-alerta">Valor maior que a dívida!</span>`;
+                    return;
+                }
+            }
+            
+            conta.saldoDevedor -= valor;
+            // Se o saldo devedor ficou muito perto de zero (bug do float), zera ele.
+            if (conta.saldoDevedor < 0.001) {
+                conta.saldoDevedor = 0;
             }
 
-            // Abate da fatura
-            conta.saldoDevedor -= valor;
-            registrarMovimentacao("Pagamento", valor * -1); // Pagamento é (negativo) na fatura
-
+            registrarMovimentacao("Pagamento", valor * -1);
             const novoLimiteDisp = conta.limiteTotal - conta.saldoDevedor;
             document.getElementById("resOperacoes").innerHTML = 
                 `✅ Pagamento de R$ ${valor.toFixed(2)} recebido!` +
@@ -405,23 +383,21 @@ function chamarModalPagarFatura() {
     );
 }
 
-/**
- * REQUISITO 4: Simula o vencimento da fatura e aplica juros.
- */
 function simularVencimento() {
     if (!contaAtiva()) return;
     limparResultados();
 
-    if (conta.saldoDevedor === 0) {
+    // Arredonda para centavos para checagem
+    const saldoEmCentavos = Math.round(conta.saldoDevedor * 100);
+
+    if (saldoEmCentavos === 0) {
+        conta.saldoDevedor = 0; // Corrige se for 0.00001
         abrirModal('alert', 'Vencimento da Fatura', 'Sua fatura fechou em dia. Parabéns!');
         return;
     }
 
-    // Se tem dívida, aplica juros de 2%
     const juros = conta.saldoDevedor * 0.02;
     conta.saldoDevedor += juros;
-    
-    // Atualiza a data de vencimento (para +30 dias)
     conta.dataVencimento.setDate(conta.dataVencimento.getDate() + 30);
     const novaDataVenc = conta.dataVencimento.toLocaleDateString('pt-BR');
 
@@ -436,25 +412,17 @@ function simularVencimento() {
     document.getElementById("resOperacoes").innerHTML = msg;
 }
 
-
 // ===================================
 // FUNÇÕES COMUNS (ATUALIZADAS)
 // ===================================
 
-/**
- * REQUISITO 5: Atualiza o "Ver Saldo" para Cartão de Crédito
- */
 function verSaldo() {
   if (!contaAtiva()) return;
   limparResultados();
-  
   let msg = "";
 
-  // Se for Conta Bancária (Corrente ou Poupança)
   if (conta.tipoConta === 'corrente' || conta.tipoConta === 'poupanca') {
     msg = `📊 Saldo atual: <strong>R$ ${conta.saldo.toFixed(2)}</strong>`;
-    
-    // Desafio Extra (Juros Poupança)
     if (conta.tipoConta === 'poupanca' && conta.dataUltimoDeposito) {
       const hoje = new Date();
       const diasPassados = calcularDiferencaDias(conta.dataUltimoDeposito, hoje);
@@ -467,13 +435,10 @@ function verSaldo() {
     } else if (conta.tipoConta === 'poupanca' && !conta.dataUltimoDeposito) {
        msg += `<br><span class="msg-info">💡 Faça um depósito para iniciar o ciclo de juros!</span>`;
     }
-  
   } 
-  // REQUISITO 5: Se for Cartão de Crédito
   else if (conta.tipoConta === 'cartao') {
     const limiteDisponivel = conta.limiteTotal - conta.saldoDevedor;
     const dataVenc = conta.dataVencimento.toLocaleDateString('pt-BR');
-
     msg = `💳 <strong>Extrato do Cartão</strong><br>` +
           `Limite Disponível: <strong>R$ ${limiteDisponivel.toFixed(2)}</strong><br>` +
           `Saldo Devedor (Fatura): <strong>R$ ${conta.saldoDevedor.toFixed(2)}</strong><br>` +
@@ -487,17 +452,14 @@ function verSaldo() {
 function listarMovimentos() {
   if (!contaAtiva()) return;
   limparResultados();
-  
   let listaHtml = "";
   if (movimentacoes.length === 0) {
     listaHtml = "Nenhuma movimentação registrada.";
   } else {
     const listaInvertida = [...movimentacoes].reverse();
-    // Muda o título dependendo da conta
     const titulo = (conta.tipoConta === 'cartao') ? 'Fatura Recente' : 'Movimentações Recentes';
     listaHtml = `<strong>📜 ${titulo}:</strong><br>${listaInvertida.join("<br>")}`;
   }
-  
   abrirModal('alert', 'Extrato da Conta', listaHtml);
   document.getElementById("resOperacoes").innerHTML = listaHtml;
 }
@@ -507,35 +469,42 @@ function chamarModalEncerrar() {
   limparResultados();
   
   let msgErro = "";
-  // Lógica de encerramento para Conta Bancária
   if (conta.tipoConta === 'corrente' || conta.tipoConta === 'poupanca') {
-      if (conta.saldo !== 0) {
+      // CORREÇÃO: Usar a mesma lógica de centavos
+      const saldoEmCentavos = Math.round(conta.saldo * 100);
+      if (saldoEmCentavos !== 0) {
           msgErro = `<span class="msg-alerta">Para encerrar a conta, o saldo deve ser R$ 0,00.</span>` +
                     `<br>Seu saldo atual é: R$ ${conta.saldo.toFixed(2)}`;
       }
   } 
-  // Lógica de encerramento para Cartão
   else if (conta.tipoConta === 'cartao') {
-      if (conta.saldoDevedor !== 0) {
+      // ==========================================================
+      // CORREÇÃO DO BUG (LÓGICA DE CENTAVOS)
+      // ==========================================================
+      // Multiplica por 100 para pegar o valor em centavos e arredonda,
+      // isso evita bugs de centavos quebrados (ex: 0.000001)
+      const saldoEmCentavos = Math.round(conta.saldoDevedor * 100);
+      
+      // Agora verificamos se os centavos são diferentes de zero
+      if (saldoEmCentavos !== 0) {
           msgErro = `<span class="msg-alerta">Para cancelar o cartão, a fatura deve estar paga (Saldo Devedor R$ 0,00).</span>` +
                     `<br>Seu saldo devedor é: R$ ${conta.saldoDevedor.toFixed(2)}`;
       }
+      // ==========================================================
   }
 
-  // Se houver erro, mostre o alerta e pare
   if (msgErro) {
       abrirModal('alert', 'Encerramento Negado', msgErro);
       document.getElementById("resOperacoes").innerHTML = msgErro;
       return;
   }
 
-  // Se passou, abre o modal de confirmação
   const tipoProduto = (conta.tipoConta === 'cartao') ? "cartão" : "conta";
   abrirModal(
     'confirm',
     `Encerrar ${tipoProduto}`,
     `Tem certeza que deseja encerrar/cancelar este ${tipoProduto}? Esta ação é irreversível.`,
-    () => { // Ação do "Sim"
+    () => { // Ação "Sim"
       conta.ativa = false;
       document.getElementById("resOperacoes").innerHTML =
         `⚠️ ${tipoProduto} de <strong>${conta.nomeCliente}</strong> encerrado com sucesso!`;
@@ -545,13 +514,13 @@ function chamarModalEncerrar() {
       document.getElementById("nome").disabled = false;
       document.getElementById("tipoConta").disabled = false;
       document.getElementById("btnAbrir").disabled = false;
-      exibirPainelOperacoes('nenhum'); // Esconde todos os painéis
+      exibirPainelOperacoes('nenhum');
       
       conta = null;
       movimentacoes = [];
       document.getElementById("resConta").innerHTML = "";
     },
-    () => { // Ação do "Não"
+    () => { // Ação "Não"
        document.getElementById("resOperacoes").innerHTML = `Operação de encerramento cancelada.`;
     }
   );
@@ -570,7 +539,6 @@ function atualizarDataHora() {
   }
 }
 
-// Garante que os painéis de operação estejam escondidos no início
 document.addEventListener('DOMContentLoaded', () => {
     exibirPainelOperacoes('nenhum');
     atualizarDataHora();
